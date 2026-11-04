@@ -16,6 +16,7 @@ client = Groq(api_key=api_key)
 
 print("Groq client initialized successfully!")
 
+MAX_HISTORY_MESSAGES = 10
 system_prompt = """
 # Identity
 
@@ -99,29 +100,26 @@ while True:
         stream=True
     )
 
-    answer = response.choices[0].message.content
+    answer = ""
 
-    messages.append(
-        {
-            "role":"assistant",
-            "content":answer
-        }
-    )
+    try:
+        for chunk in response:
+
+            if chunk.choices:
+                content = chunk.choices[0].delta.content
+
+                if content:
+                    print(content, end="", flush=True)
+                    assistant_reply += content
+
+    except KeyboardInterrupt:
+        print("\nGeneration interrupted.")
     
-
-    finish_reason = response.choices[0].finish_reason
-
-    usage = response.usage
-
-    print("\nAI RESPONSE:")
-    print(answer)
-
-    print("\nMETADATA:")
-    print("Model:", response.model)
-    print("Response ID:", response.id)
-    print("Finish reason:", finish_reason)
-
-    print("\nTOKEN USAGE:")
-    print("Input tokens:", usage.prompt_tokens)
-    print("Output tokens:", usage.completion_tokens)
-    print("Total tokens:", usage.total_tokens)
+    if answer:
+        messages.append(
+            {
+                "role":"assistant",
+                "content":answer
+            }
+        )
+    
