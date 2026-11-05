@@ -64,6 +64,9 @@ messages = [
     },
     
 ]
+def remove_failed_user_message(messages):
+    if messages and messages[-1]["role"] == "user":
+        messages.pop()
 
 def trim(messages):
     system_message = messages[0]
@@ -111,35 +114,65 @@ while True:
     })
 
     messages = trim(messages)
-    
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
-        messages=messages,
-        max_completion_tokens=300,
-        stream=True
-    )
-
-    answer = ""
-
     try:
-        for chunk in response:
-
-            if chunk.choices:
-                content = chunk.choices[0].delta.content
-
-                if content:
-                    print(content, end="", flush=True)
-                    assistant_reply += content
-
-    except KeyboardInterrupt:
-        print("\nGeneration interrupted.")
-    
-    if answer:
-        messages.append(
-            {
-                "role":"assistant",
-                "content":answer
-            }
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=messages,
+            max_completion_tokens=300,
+            stream=True
         )
-    messages = trim(messages)
+
+        answer = ""
+
+        try:
+            for chunk in response:
+
+                if chunk.choices:
+                    content = chunk.choices[0].delta.content
+
+                    if content:
+                        print(content, end="", flush=True)
+                        answer += content
+
+        except KeyboardInterrupt:
+            print("\nGeneration interrupted.")
+        
+        if answer:
+            messages.append(
+                {
+                    "role":"assistant",
+                    "content":answer
+                }
+            )
+        messages = trim(messages)
+    except groq.AuthenticationError:
+        remove_failed_user_message(messages)
+        print("\nAuthentication failed. Check your API key.")
+
+    except groq.RateLimitError:
+        remove_failed_user_message(messages)
+        print("\nRate limit reached. Please wait.")
+
+    except groq.APITimeoutError:
+        remove_failed_user_message(messages)
+        print("\nRequest timed out.")
+
+    except groq.APIConnectionError:
+        remove_failed_user_message(messages)
+        print("\nConnection problem. Check your internet.")
+
+    except groq.APIStatusError as e:
+        remove_failed_user_message(messages)
+        print(f"\nAPI error. Status code: {e.status_code}")
+
+    except groq.APIError as e:
+        remove_failed_user_message(messages)
+        print(f"\nGroq error: {e}")
+
+    except Exception as e:
+        remove_failed_user_message(messages)
+
+        print("\nAn unexpected error occurred.")
+        print("Error type:", type(e).__name__)
+        print("Error details:", e)
     
