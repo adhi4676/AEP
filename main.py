@@ -1,4 +1,5 @@
 import os
+import groq
 
 from dotenv import load_dotenv
 from groq import Groq
@@ -16,7 +17,7 @@ client = Groq(api_key=api_key)
 
 print("Groq client initialized successfully!")
 
-MAX_HISTORY_MESSAGES = 10
+MAX_HISTORY_MESSAGES = 5
 system_prompt = """
 # Identity
 
@@ -64,6 +65,18 @@ messages = [
     
 ]
 
+def trim(messages):
+    system_message = messages[0]
+
+    conv = messages[1:]
+
+    conv = conv[-MAX_HISTORY_MESSAGES:]
+
+    if conv:
+        if conv[0]["role"]=="assistant":
+            conv=conv[1:]
+
+    return [system_message] + conv
 
 while True:
     user_input = input("You: ").strip()
@@ -92,7 +105,13 @@ while True:
             "content":user_input
         }
     )
+    messages.append({
+    "role": "user",
+    "content": user_input
+    })
 
+    messages = trim(messages)
+    
     response = client.chat.completions.create(
         model="openai/gpt-oss-120b",
         messages=messages,
@@ -122,4 +141,5 @@ while True:
                 "content":answer
             }
         )
+    messages = trim(messages)
     
