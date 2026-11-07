@@ -9,11 +9,11 @@ load_dotenv()
 
 api_key = os.getenv("GROQ_API_KEY")
 
-
-if not api_key:
-    raise ValueError("GROQ_API_KEY not found!")
-
-client = Groq(api_key=api_key)
+client = Groq(
+    api_key=api_key,
+    max_retries=2,
+    timeout=30.0
+    )
 
 print("Groq client initialized successfully!")
 
@@ -108,10 +108,6 @@ while True:
             "content":user_input
         }
     )
-    messages.append({
-    "role": "user",
-    "content": user_input
-    })
 
     messages = trim(messages)
     try:
@@ -123,6 +119,7 @@ while True:
         )
 
         answer = ""
+        completed = False
 
         try:
             for chunk in response:
@@ -134,17 +131,23 @@ while True:
                         print(content, end="", flush=True)
                         answer += content
 
+            completed = True
+
         except KeyboardInterrupt:
             print("\nGeneration interrupted.")
         
-        if answer:
+        if completed:
             messages.append(
                 {
                     "role":"assistant",
                     "content":answer
                 }
             )
+        else:
+            remove_failed_user_message(messages)
+
         messages = trim(messages)
+        
     except groq.AuthenticationError:
         remove_failed_user_message(messages)
         print("\nAuthentication failed. Check your API key.")
